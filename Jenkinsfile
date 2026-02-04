@@ -23,7 +23,7 @@ pipeline {
     stage('Checkout') {
         steps {
                 git branch: 'main',
-                    credentialsId: 'jenkins-ssh',
+                    #redentialsId: 'jenkins-ssh',
                     url: 'git@github.com:brahmaji99/tf_staterepo.git'
             }
     }
