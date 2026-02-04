@@ -1,7 +1,7 @@
 pipeline {
   agent any
 
-   options {
+  options {
     skipDefaultCheckout(true)
   }
 
@@ -9,12 +9,7 @@ pipeline {
     choice(
       name: 'ENV',
       choices: ['dev', 'qa', 'prod'],
-      description: 'Terraform workspace/environment'
-    )
-    booleanParam(
-      name: 'BOOTSTRAP',
-      defaultValue: true,
-      description: 'Run backend bootstrap (S3 + DynamoDB + IAM) – run only once'
+      description: 'Terraform workspace'
     )
   }
 
@@ -25,78 +20,48 @@ pipeline {
   stages {
 
     stage('Checkout') {
-        steps {
-                git branch: 'main',
-                    //credentialsId: 'jenkins-ssh',
-                    url: 'git@github.com:brahmaji99/tf_staterepo.git'
-            }
-    }
-
-    stage('Terraform Bootstrap (Backend Infra)') {
-      when {
-        expression { params.BOOTSTRAP == true }
+      steps {
+        checkout([
+          $class: 'GitSCM',
+          branches: [[name: '*/main']],
+          userRemoteConfigs: [[
+            url: 'git@github.com:brahmaji99/tf_staterepo.git',
+            credentialsId: 'jenkins-ssh'
+          ]]
+        ])
       }
-      steps {
-        dir('tf_staterepo')
-          sh '''
-            terraform init
-            terraform plan
-            terraform apply -auto-approve
-          '''
-        }
     }
-    
 
-    stage('Terraform Init (Infra)') {
+    stage('Terraform Init') {
       steps {
-        dir('tf_staterepo') {
-          sh '''
-            terraform init
-          '''
-        }
+        sh '''
+          terraform version
+          terraform init
+        '''
       }
     }
 
     stage('Select or Create Workspace') {
       steps {
-        dir('tf_staterepo') {
-          sh '''
-            terraform workspace list | grep ${ENV} \
-              || terraform workspace new ${ENV}
-
-            terraform workspace select ${ENV}
-          '''
-        }
+        sh '''
+          set -e
+          terraform workspace list | grep -w "${ENV}" \
+            && terraform workspace select "${ENV}" \
+            || terraform workspace new "${ENV}"
+        '''
       }
     }
 
     stage('Terraform Plan') {
       steps {
-        dir('tf_staterepo') {
-          sh '''
-            terraform plan
-          '''
-        }
+        sh 'terraform plan'
       }
     }
 
     stage('Terraform Apply') {
       steps {
-        dir('tf_staterepo') {
-          sh '''
-            terraform apply -auto-approve
-          '''
-        }
+        sh 'terraform apply -auto-approve'
       }
-    }
-  }
-
-  post {
-    success {
-      echo "✅ Terraform deployment successful for ${ENV}"
-    }
-    failure {
-      echo "❌ Terraform deployment failed"
     }
   }
 }
