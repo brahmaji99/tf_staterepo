@@ -1,6 +1,10 @@
 pipeline {
   agent any
 
+   options {
+    skipDefaultCheckout(true)
+  }
+
   parameters {
     choice(
       name: 'ENV',
@@ -9,7 +13,7 @@ pipeline {
     )
     booleanParam(
       name: 'BOOTSTRAP',
-      defaultValue: false,
+      defaultValue: true,
       description: 'Run backend bootstrap (S3 + DynamoDB + IAM) – run only once'
     )
   }
